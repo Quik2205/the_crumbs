@@ -1,58 +1,83 @@
 <?php
 header('Content-Type: application/json');
 
-$animales = [
-    [
-        "ID" => 1,
-        "Creado_en" => "2023-04-10T14:23:00Z",
-        "Nombre_cientifico" => "Panthera leo",
-        "Familia" => "Felino",
-        "Dieta" => "Carnívoro",
-        "Peso_kg" => 190,
-        "Habitat" => "Sabana africana"
-    ],
-    [
-        "ID" => 2,
-        "Creado_en" => "2022-12-01T09:15:30Z",
-        "Nombre_cientifico" => "Panthera tigris",
-        "Familia" => "Felino",
-        "Dieta" => "Carnívoro",
-        "Peso_kg" => 220,
-        "Habitat" => "Bosques tropicales de Asia"
-    ],
-    [
-        "ID" => 3,
-        "Creado_en" => "2023-06-20T18:45:10Z",
-        "Nombre_cientifico" => "Felis catus",
-        "Familia" => "Felino",
-        "Dieta" => "Carnívoro",
-        "Peso_kg" => 4.5,
-        "Habitat" => "Hogar doméstico"
-    ],
-    [
-        "ID" => 4,
-        "Creado_en" => "2023-05-15T11:30:00Z",
-        "Nombre_cientifico" => "Canis lupus",
-        "Familia" => "Canino",
-        "Dieta" => "Carnívoro",
-        "Peso_kg" => 45,
-        "Habitat" => "Bosques y tundras"
-    ],
-    [
-        "ID" => 5,
-        "Creado_en" => "2023-01-10T08:20:00Z",
-        "Nombre_cientifico" => "Delphinus delphis",
-        "Familia" => "Cetáceo",
-        "Dieta" => "Carnívoro",
-        "Peso_kg" => 150,
-        "Habitat" => "Océano"
-    ],
-   
-];
+$archivo = 'animales_data.json';
 
-echo json_encode([
-    "mensaje" => "Lista de 10 animales",
-    "total" => count($animales),
-    "datos" => $animales
-], JSON_PRETTY_PRINT);
-?>
+// Función para obtener tweets desde X (Twitter)
+function obtenerTweetsDeTwitter($usuario, $bearerToken, $limite = 5) {
+    $urlUser = "https://api.twitter.com/2/users/by/username/{$usuario}";
+    $headers = ["Authorization: Bearer {$bearerToken}"];
+
+    $ch = curl_init($urlUser);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers
+    ]);
+    $userResponse = json_decode(curl_exec($ch), true);
+    curl_close($ch);
+
+    if (!isset($userResponse['data']['id'])) {
+        return ["error" => "No se pudo obtener el ID del usuario."];
+    }
+
+    $userId = $userResponse['data']['id'];
+
+    $urlTweets = "https://api.twitter.com/2/users/{$userId}/tweets?max_results={$limite}&tweet.fields=id,text,author_id";
+    $ch = curl_init($urlTweets);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers
+    ]);
+    $tweetsResponse = json_decode(curl_exec($ch), true);
+    curl_close($ch);
+
+    $tweetsSimplificados = [];
+    foreach ($tweetsResponse['data'] ?? [] as $tweet) {
+        $tweetsSimplificados[] = [
+            'ID' => $tweet['id'],
+            'Texto' => $tweet['text'],
+            'Autor' => $usuario
+        ];
+    }
+
+    return $tweetsSimplificados;
+}
+
+// Leer datos del archivo JSON
+$animales = json_decode(file_get_contents($archivo), true);
+
+// Obtener método de la petición
+$metodo = $_SERVER['REQUEST_METHOD'];
+
+if ($metodo === 'GET') {
+    $pagina = isset($_GET['page']) ? intval($_GET['page']) : 1;
+    $porPagina = 10;
+    $total = count($animales);
+    $inicio = ($pagina - 1) * $porPagina;
+    $animalesPaginados = array_slice($animales, $inicio, $porPagina);
+
+    // Agregar tweets si se solicita
+    if (isset($_GET['twitter']) && $_GET['twitter'] == '1') {
+        $tweets = obtenerTweetsDeTwitter('BioanimalUAH', 'MI TOKEN');
+        echo json_encode([
+            'animales' => $animalesPaginados,
+            'tweets' => $tweets
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    } else {
+        echo json_encode($animalesPaginados, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    }
+} elseif ($metodo === 'POST') {
+    $nuevoAnimal = json_decode(file_get_contents('php://input'), true);
+    if ($nuevoAnimal) {
+        $ultimoID = end($animales)['ID'];
+        $nuevoAnimal['ID'] = $ultimoID + 1;
+        $nuevoAnimal['Creado_en'] = date('c');
+        $animales[] = $nuevoAnimal;
+        file_put_contents($archivo, json_encode($animales, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        echo json_encode(['mensaje' => 'Animal agregado correctamente'], JSON_UNESCAPED_UNICODE);
+    } else {
+        echo json_encode(['error' => 'Datos inválidos'], JSON_UNESCAPED_UNICODE);
+    }
+} else {
+    echo json_encode(['error' => 'Método no permitido'], JSON_UNESCAPED_UNICODE);
+}
