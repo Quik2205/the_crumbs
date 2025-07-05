@@ -1,65 +1,61 @@
-openapi: .0.4
+openapi: 3.0.4
 info:
-  title: API de Alumnos
+  title: API de Animales
   description: |
-    Plantilla base OpenAPI 3.0 para exponer un recurso tipo "alumno".
-    Llena los campos de esta plantilla con la información de tu API.
+    Servicio web donde puedes agregar, eliminaar y modificar la descripcion de animales 
   version: 1.0.0
 servers:
-  - url: http://localhost:3000/api/v1
+  - url: http://localhost:3000/
 paths:
-  /alumno:
-    post:
+  /api/animales:
+    get:
       tags:
-        - alumno
-      summary: Crear un nuevo alumno
-      description: Agrega un nuevo alumno al sistema.
-      operationId: crearAlumno
-      requestBody:
-        description: Objeto alumno a crear
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Alumno'
+        - animales
+      summary: Trae la lista de animales
+      description: Trae la lista de animales registrados en el sistema
+      operationId: getanimalesList
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            example: 1
+          description: pagina de lista de animales, cada pagina tiene 10 elementos 
       responses:
-        '201':
+        '200':
           description: Alumno creado exitosamente
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Alumno'
-        '400':
-          description: Datos inválidos
-        default:
-          description: Error inesperado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Animales'
 components:
   schemas:
-    Alumno:
+    Animales:
       type: object
       required:
-        - nombre
-        - matricula
-        - grupo
-        - created_at
+        - Nombre cientifico
+        - Familia
+        - Dieta
+        - Peso
+        - Habitat
       properties:
-        nombre:
+        Nombre_Cientifico:
           type: string
-          example: Juan Pérez
-        matricula:
+          example: Panthera onca
+        Familia:
+          type: string
+          example: Felidae
+        Dieta:
+          type: string
+          example: Carnivoro
+        Peso:
           type: integer
-          example: 20231234
-        grupo:
+          example: 69
+        Habitat:
           type: string
-          example: "5A"
-        created_at:
-          type: string
-          format: date-time
-          example: "2025-07-05T00:57:48Z"
+          example: Selvas tropicales
     Error:
       type: object
       properties:
